@@ -917,6 +917,7 @@ byte bFlipped = false;
   return 0;
 } /* uc1701LoadBMP() */
 
+#ifdef BACKING_RAM
 // Set (or clear) an individual pixel
 // The local copy of the frame buffer is used to avoid
 // reading data from the display controller
@@ -928,9 +929,7 @@ unsigned char uc, ucOld;
   i = ((y >> 3) * 128) + x;
   if (i < 0 || i > 1023) // off the screen
     return -1;
-#ifdef BACKING_RAM
   uc = ucOld = ucScreen[i];
-#endif
   uc &= ~(0x1 << (y & 7));
   if (ucColor)
   {
@@ -951,17 +950,14 @@ unsigned char uc, ucOld;
 //
 int uc1701GetPixel(int x, int y)
 {
-#ifdef BACKING_RAM
 int i;
 
    i = ((y >> 3) * 128) + x;
    if (i >= 0 && i <= 1023) // on the screen?
       return (ucScreen[i] & (1<< (y & 7)));
-#else
-  (void)x; (void)y; // unused
-#endif
    return 0;
 } /* uc1701GetPixel() */
+#endif // BACKING_RAM
 
 // Draw a string of small (8x8) or large (16x24) characters
 // At the given col+row
