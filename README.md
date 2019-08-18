@@ -3,7 +3,8 @@ Copyright (c) 2017-2019 BitBank Software, Inc.<br>
 Written by Larry Bank<br>
 bitbank@pobox.com<br>
 <br>
-[![bb_uc1701 demo](https://img.youtube.com/vi/https://www.youtube.com/watch?v=ihqTefEhHAo/0.jpg)](https://www.youtube.com/watch?v=ihqTefEhHAo)
+[![bb_uc1701 demo](https://img.youtube.com/vi/ihqTefEhHAo/0.jpg)](https://www.youtube.com/watch?v=ihqTefEhHAo)
+
 <br>
 The purpose of this code is to easily control ST7565/UC1701 LCD
 displays using a minimum of FLASH and RAM.
