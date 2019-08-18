@@ -37,6 +37,10 @@ int x, y;
   uc1701WriteString(0,4,(char *)"16x16", FONT_STRETCHED,0);
   uc1701WriteString(0,6,(char *)"Stretch", FONT_STRETCHED,0);
   delay(3000);
+
+// This demo is disabled on AVR because BACKING_RAM is disabled by default
+// To enable this feature, edit bb_uc1701.h and enable BACKING_RAM
+#ifndef __AVR__
 // Line demo
   uc1701Fill(0);
   uc1701WriteString(8,0,(char *)"Optimized Line", FONT_NORMAL,0);
@@ -48,6 +52,7 @@ int x, y;
   for (y=0; y<63; y+= 2)
     uc1701DrawLine(127,y,0,63-y);
   delay(3000);
+#endif
  // rotated tile drawing
   uc1701Fill(0);
   uc1701WriteString(16,0,(char *)"Rotated Tile", FONT_NORMAL,0);

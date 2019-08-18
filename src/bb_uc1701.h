@@ -26,7 +26,7 @@ enum {
 // Uncomment this define to allow the pixel functions to work
 // It requires an extra 1024 bytes of memory (rare on Arduinos)
 //
-#define BACKING_RAM
+//#define BACKING_RAM
 
 // Write a block of pixel data from FLASH ROM to the LCD
 void uc1701WriteFlashBlock(unsigned char *ucBuf, int iLen);
@@ -44,11 +44,6 @@ void uc1701WriteDataBlock(unsigned char *ucBuf, int iLen);
 // Load a 128x64 1-bpp Windows bitmap
 //
 int uc1701LoadBMP(byte *pBMP);
-//
-// Returns a pointer to the internal display buffer
-//
-uint8_t * uc1701GetDisplayBuffer(void);
-
 //
 // Power up the display
 //
@@ -83,6 +78,14 @@ void uc1701Backlight(int bOn);
 //
 int uc1701SetContrast(unsigned char ucContrast);
 //
+// These functions are only available when there is a BACKING_RAM buffer
+//
+#ifdef BACKING_RAM
+//
+// Returns a pointer to the internal display buffer
+//
+uint8_t * uc1701GetDisplayBuffer(void);
+//
 // Set (or clear) an individual pixel
 // The local copy of the frame buffer is used to avoid
 // reading data from the display controller
@@ -95,14 +98,15 @@ int uc1701SetPixel(int x, int y, unsigned char ucColor);
 //
 int uc1701GetPixel(int x, int y);
 //
+// Draw an arbitrary line from x1,y1 to x2,y2
+//
+void uc1701DrawLine(int x1, int y1, int x2, int y2);
+#endif // BACKING_RAM
+//
 // Draw a string of normal (8x8), small (6x8) or large (16x24) characters
 // At the given col+row
 //
 int uc1701WriteString(int x, int y, char *szMsg, int bInverted, int iSize);
-//
-// Draw an arbitrary line from x1,y1 to x2,y2
-//
-void uc1701DrawLine(int x1, int y1, int x2, int y2);
 //
 // Draw a 16x16 tile in any of 4 rotated positions
 // Assumes input image is laid out like "normal" graphics with

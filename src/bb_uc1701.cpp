@@ -1105,6 +1105,7 @@ byte temp[32];
   } // for y;
 } /* uc1701Fill() */
 
+#ifdef BACKING_RAM
 //
 // Draw an arbitrary line from x1,y1 to x2,y2
 //
@@ -1235,4 +1236,4 @@ void uc1701DrawLine(int x1, int y1, int x2, int y2)
     }
   } // y major case
 } /* uc1701DrawLine() */
-
+#endif // BACKING_RAM
