@@ -491,7 +491,7 @@ static unsigned int iScreenOffset; // current write offset of screen data
 #ifdef BACKING_RAM
 static unsigned char ucScreen[1024]; // local copy of the image buffer
 #endif
-static byte iDCPin, iResetPin, iLEDPin;
+static int iDCPin, iMOSIPin, iSCKPin, iResetPin, iLEDPin;
 static byte bFlipped = 0; // indicates display is flipped 180 degrees
 static void uc1701WriteCommand(unsigned char c);
 void uc1701WriteDataBlock(unsigned char *ucBuf, int iLen);
@@ -548,10 +548,12 @@ void uc1701PowerUp(void)
 // Prepares the font data for the orientation of the display
 // Parameters: GPIO pin numbers used for the DC/RST/LED control lines
 //
-int uc1701Init(int iDC, int iReset, int iLED, int iCS, byte bFlip180, byte bInvert, int32_t iClock)
+int uc1701Init(int iDC, int iReset, int iLED, int iCS, int iMOSI, int iSCK, byte bFlip180, byte bInvert, int32_t iClock)
 {
 
         iDCPin = iDC;
+        iMOSIPin = iMOSI; // set to -1 for hardware SPI
+        iSCKPin = iSCK; // set to -1 for hardware SPI
         csPin = iCS;
         iResetPin = iReset;
         iLEDPin = iLED;
@@ -568,6 +570,16 @@ int uc1701Init(int iDC, int iReset, int iLED, int iCS, byte bFlip180, byte bInve
         if (iLEDPin != -1) // not used
         {
            pinMode(iLEDPin, OUTPUT);
+        }
+        if (iMOSIPin != -1)
+        {
+           pinMode(iMOSIPin, OUTPUT);
+           digitalWrite(iMOSIPin, LOW);
+        }
+        if (iSCKPin != -1)
+        {
+           pinMode(iSCKPin, OUTPUT);
+           digitalWrite(iSCKPin, LOW);
         }
 
   // Start by reseting the LCD controller
@@ -691,7 +703,39 @@ void uc1701Backlight(int bOn)
      digitalWrite(iLEDPin, (bOn) ? HIGH:LOW);
   }
 } /* uc1701Backlight() */
-
+//
+// Bit Bang the data on GPIO pins
+//
+static void SPI_BitBang(uint8_t *pData, int iLen)
+{
+int i;
+uint8_t c;
+   while (iLen)
+   {
+      c = *pData++;
+      if (c == 0 || c == 0xff) // quicker for all bits equal
+      {
+         digitalWrite(iMOSIPin, (c & 1));
+         for (i=0; i<8; i++)
+         {
+            digitalWrite(iSCKPin, HIGH);
+            digitalWrite(iSCKPin, LOW);
+         }
+      }
+      else
+      {
+         for (i=0; i<8; i++)
+         {
+            digitalWrite(iMOSIPin,  (c & 0x80) != 0); // MSB first
+            digitalWrite(iSCKPin, HIGH);
+            c <<= 1;
+            delayMicroseconds(0);
+            digitalWrite(iSCKPin, LOW);
+         }
+      } 
+      iLen--;
+   }
+} /* SPI_BitBang() */
 //
 // Sends a command to turn off the LCD display
 //
@@ -708,7 +752,10 @@ void uc1701PowerDown()
 static void uc1701WriteCommand(unsigned char c)
 {
   digitalWrite(csPin, LOW);
-  SPI.transfer(c);
+  if (iMOSIPin == -1)
+     SPI.transfer(c);
+  else
+     SPI_BitBang(&c, 1);
   digitalWrite(csPin, HIGH);
 } /* uc1701WriteCommand() */
 
@@ -842,7 +889,10 @@ int i;
         i = 32;
      else
         i = iLen;
-     SPI.transfer(ucBuf, i);
+     if (iMOSIPin == -1)
+        SPI.transfer(ucBuf, i);
+     else
+        SPI_BitBang(ucBuf, i);
      ucBuf += i;
      iLen -= i;
   }
@@ -917,7 +967,6 @@ byte bFlipped = false;
   return 0;
 } /* uc1701LoadBMP() */
 
-#ifdef BACKING_RAM
 // Set (or clear) an individual pixel
 // The local copy of the frame buffer is used to avoid
 // reading data from the display controller
@@ -929,7 +978,9 @@ unsigned char uc, ucOld;
   i = ((y >> 3) * 128) + x;
   if (i < 0 || i > 1023) // off the screen
     return -1;
+#ifdef BACKING_RAM
   uc = ucOld = ucScreen[i];
+#endif
   uc &= ~(0x1 << (y & 7));
   if (ucColor)
   {
@@ -950,14 +1001,17 @@ unsigned char uc, ucOld;
 //
 int uc1701GetPixel(int x, int y)
 {
+#ifdef BACKING_RAM
 int i;
 
    i = ((y >> 3) * 128) + x;
    if (i >= 0 && i <= 1023) // on the screen?
       return (ucScreen[i] & (1<< (y & 7)));
+#else
+  (void)x; (void)y; // unused
+#endif
    return 0;
 } /* uc1701GetPixel() */
-#endif // BACKING_RAM
 
 // Draw a string of small (8x8) or large (16x24) characters
 // At the given col+row
@@ -1101,7 +1155,6 @@ byte temp[32];
   } // for y;
 } /* uc1701Fill() */
 
-#ifdef BACKING_RAM
 //
 // Draw an arbitrary line from x1,y1 to x2,y2
 //
@@ -1111,7 +1164,7 @@ void uc1701DrawLine(int x1, int y1, int x2, int y2)
   int dx = x2 - x1;
   int dy = y2 - y1;
   int error;
-  uint8_t ucTemp[128], *p, *pStart, mask, bOld, bNew;
+  uint8_t *p, *pStart, mask, bOld, bNew;
   int xinc, yinc;
   int y, x;
  
@@ -1154,8 +1207,7 @@ void uc1701DrawLine(int x1, int y1, int x2, int y2)
         if (mask == 0) // we've moved outside the current row, write the data we changed
         {
            uc1701SetPosition(x, y>>3);
-           memcpy(ucTemp, pStart, (int)(p-pStart)); // full duplex SPI erases the data
-           uc1701WriteDataBlock(ucTemp,  (int)(p-pStart)); // write the row we changed
+           uc1701WriteDataBlock(pStart,  (int)(p-pStart)); // write the row we changed
            x = x1+1; // we've already written the byte at x1
            y1 = y+yinc;
            p += (yinc > 0) ? 128 : -128;
@@ -1168,8 +1220,7 @@ void uc1701DrawLine(int x1, int y1, int x2, int y2)
    if (p != pStart) // some data needs to be written
    {
      uc1701SetPosition(x, y>>3);
-     memcpy(ucTemp, pStart, (int)(p-pStart)); // full duplex SPI clobbers the data
-     uc1701WriteDataBlock(ucTemp, (int)(p-pStart));
+     uc1701WriteDataBlock(pStart, (int)(p-pStart));
    }
   }
   else {
@@ -1202,7 +1253,6 @@ void uc1701DrawLine(int x1, int y1, int x2, int y2)
       {
         if (bOld != bNew)
         {
-          p[0] = bNew; // save to RAM
           uc1701SetPosition(x, y1>>3);
           uc1701WriteDataBlock(&bNew, 1);
         }
@@ -1215,7 +1265,6 @@ void uc1701DrawLine(int x1, int y1, int x2, int y2)
         error += dy;
         if (bOld != bNew) // write the last byte we modified if it changed
         {
-          p[0] = bNew; // save to RAM
           uc1701SetPosition(x, y1>>3);
           uc1701WriteDataBlock(&bNew, 1);
         }
@@ -1226,10 +1275,9 @@ void uc1701DrawLine(int x1, int y1, int x2, int y2)
     } // for y
     if (bOld != bNew) // write the last byte we modified if it changed
     {
-      p[0] = bNew; // save to RAM
       uc1701SetPosition(x, y2>>3);
       uc1701WriteDataBlock(&bNew, 1);
     }
   } // y major case
 } /* uc1701DrawLine() */
-#endif // BACKING_RAM
+

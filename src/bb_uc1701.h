@@ -4,8 +4,8 @@
 // Copyright (c) 2018 BitBank Software, Inc.
 // converted from Linux 2/23/2018
 //
-#ifndef __BB_UC1701__
-#define __BB_UC1701__
+#ifndef __BB_1701__
+#define __BB_1701__
 
 #define FONT_NORMAL 0
 #define FONT_SMALL 1
@@ -26,7 +26,7 @@ enum {
 // Uncomment this define to allow the pixel functions to work
 // It requires an extra 1024 bytes of memory (rare on Arduinos)
 //
-//#define BACKING_RAM
+#define BACKING_RAM
 
 // Write a block of pixel data from FLASH ROM to the LCD
 void uc1701WriteFlashBlock(unsigned char *ucBuf, int iLen);
@@ -45,6 +45,11 @@ void uc1701WriteDataBlock(unsigned char *ucBuf, int iLen);
 //
 int uc1701LoadBMP(byte *pBMP);
 //
+// Returns a pointer to the internal display buffer
+//
+uint8_t * uc1701GetDisplayBuffer(void);
+
+//
 // Power up the display
 //
 void uc1701PowerUp(void);
@@ -58,7 +63,7 @@ void uc1701PowerDown(void);
 // Parameters: GPIO pin numbers used for the DC/RST/LED control lines
 // If not using the LED backlight, set iLED to -1
 //
-int uc1701Init(int iDC, int iReset, int iLED, int iCS, byte bFlip180, byte bInvert, int32_t iClock);
+int uc1701Init(int iDC, int iReset, int iLED, int iCS, int iMOSI, int iSCK, byte bFlip180, byte bInvert, int32_t iClock);
 //
 // Fill the display with a byte pattern
 //
@@ -78,14 +83,6 @@ void uc1701Backlight(int bOn);
 //
 int uc1701SetContrast(unsigned char ucContrast);
 //
-// These functions are only available when there is a BACKING_RAM buffer
-//
-#ifdef BACKING_RAM
-//
-// Returns a pointer to the internal display buffer
-//
-uint8_t * uc1701GetDisplayBuffer(void);
-//
 // Set (or clear) an individual pixel
 // The local copy of the frame buffer is used to avoid
 // reading data from the display controller
@@ -98,15 +95,14 @@ int uc1701SetPixel(int x, int y, unsigned char ucColor);
 //
 int uc1701GetPixel(int x, int y);
 //
-// Draw an arbitrary line from x1,y1 to x2,y2
-//
-void uc1701DrawLine(int x1, int y1, int x2, int y2);
-#endif // BACKING_RAM
-//
 // Draw a string of normal (8x8), small (6x8) or large (16x24) characters
 // At the given col+row
 //
 int uc1701WriteString(int x, int y, char *szMsg, int bInverted, int iSize);
+//
+// Draw an arbitrary line from x1,y1 to x2,y2
+//
+void uc1701DrawLine(int x1, int y1, int x2, int y2);
 //
 // Draw a 16x16 tile in any of 4 rotated positions
 // Assumes input image is laid out like "normal" graphics with
@@ -117,5 +113,5 @@ int uc1701WriteString(int x, int y, char *szMsg, int bInverted, int iSize);
 //
 void uc1701DrawTile(uint8_t *pTile, int x, int y, int iRotation);
 
-#endif // __BB_UC1701__
+#endif // __BB_1701__
 
